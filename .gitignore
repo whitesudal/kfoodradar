@@ -1,0 +1,41 @@
+# macOS
+.DS_Store
+
+# local output
+out/
+0.png
+1.png
+2.png
+3.png
+
+# env
+.env
+.env.*
+!.env.example
+
+# node / next
+node_modules/
+.next/
+dist/
+build/
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# db / cache
+*.db
+*.sqlite
+*.sqlite3
+.cache/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+
+# editor
+.idea/
+.vscode/

@@ -1,0 +1,417 @@
+// franchise-lens/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Brand {
+  id                 String   @id @default(cuid())
+  canonicalName      String   @unique
+  slug               String   @unique
+  industryMain       String
+  industrySub        String?
+  franchisorId       String?
+  status             String   @default("active")
+  officialSourceKey  String?
+  dataCompleteness   String   @default("MINIMAL")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  franchisor         Franchisor?          @relation(fields: [franchisorId], references: [id])
+  aliases            BrandAlias[]
+  yearlyStats        OfficialYearlyStat[]
+  officialScores     OfficialScore[]
+  reputationSources  ReputationSource[]
+  reputationScores   ReputationScore[]
+  aiSummaries        AiBrandSummary[]
+  reportPurchases    ReportPurchase[]
+  merchants          Merchant[]
+
+  @@index([industryMain])
+  @@index([slug])
+}
+
+model BrandAlias {
+  id              String   @id @default(cuid())
+  brandId         String
+  aliasName       String
+  source          String
+  aliasType       String
+  matchConfidence Float    @default(1.0)
+  validFrom       DateTime?
+  validUntil      DateTime?
+  brand           Brand    @relation(fields: [brandId], references: [id])
+  @@unique([brandId, aliasName])
+  @@index([aliasName])
+}
+
+model Franchisor {
+  id               String   @id @default(cuid())
+  companyName      String
+  representativeName String?
+  businessNumber   String   @unique
+  headOfficeRegion String?
+  createdAt        DateTime @default(now())
+  brands           Brand[]
+}
+
+model OfficialYearlyStat {
+  id                      String   @id @default(cuid())
+  brandId                 String
+  baseYear                Int
+  franchiseCount          Int?
+  newOpenCount            Int?
+  closedCount             Int?
+  contractTerminatedCount Int?
+  contractCancelledCount  Int?
+  directStoreCount        Int?
+  avgSalesAmt             Float?
+  unitAreaAvgSalesAmt     Float?
+  initialInvestmentMin    Float?
+  initialInvestmentMax    Float?
+  royaltyType             String?
+  sourceUrl               String?
+  rawJson                 String?
+  fetchedAt               DateTime @default(now())
+  brand                   Brand    @relation(fields: [brandId], references: [id])
+  @@unique([brandId, baseYear])
+  @@index([brandId])
+}
+
+model OfficialScore {
+  id                  String   @id @default(cuid())
+  brandId             String
+  baseYear            Int
+  growthScore         Float?
+  stabilityScore      Float?
+  profitabilityScore  Float?
+  efficiencyScore     Float?
+  riskPenalty         Float?
+  totalOfficialScore  Float?
+  formulaVersion      String   @default("v1")
+  calculatedAt        DateTime @default(now())
+  brand               Brand    @relation(fields: [brandId], references: [id])
+  @@unique([brandId, baseYear])
+  @@index([brandId])
+}
+
+model ReputationSource {
+  id               String   @id @default(cuid())
+  brandId          String
+  sourceType       String
+  sourceName       String?
+  sourceUrl        String?
+  publishedAt      DateTime?
+  title            String?
+  sentiment        String?
+  visibilityScore  Float?
+  credibilityScore Float?
+  collectedAt      DateTime @default(now())
+  brand            Brand    @relation(fields: [brandId], references: [id])
+  @@index([brandId, sourceType])
+}
+
+model ReputationScore {
+  id                    String   @id @default(cuid())
+  brandId               String
+  snapshotDate          DateTime @default(now())
+  naverBlogScore        Float?
+  diningcodeScore       Float?
+  googleScore           Float?
+  mediaScore            Float?
+  otherScore            Float?
+  naverBlogCount        Int?
+  naverNewsCount        Int?
+  totalReputationScore  Float?
+  formulaVersion        String   @default("v1")
+  brand                 Brand    @relation(fields: [brandId], references: [id])
+  @@index([brandId])
+}
+
+model AiBrandSummary {
+  id           String   @id @default(cuid())
+  brandId      String
+  summaryType  String
+  summaryText  String
+  evidenceJson String?
+  generatedAt  DateTime @default(now())
+  expiresAt    DateTime
+  brand        Brand    @relation(fields: [brandId], references: [id])
+  @@index([brandId, summaryType])
+}
+
+model Menu {
+  id              String                @id @default(cuid())
+  canonicalName   String                @unique
+  slug            String                @unique
+  englishName     String?
+  category        String?
+  seasonality     String?
+  status          String                @default("active")
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  aliases         MenuAlias[]
+  trendSnapshots  TrendSnapshot[]
+  trendScores     TrendScore[]
+  interpretations TrendInterpretation[]
+  merchantFits    MerchantTrendFit[]
+  consultingRuns  ConsultingRun[]
+
+  @@index([category])
+  @@index([slug])
+}
+
+model MenuAlias {
+  id              String   @id @default(cuid())
+  menuId          String
+  aliasName       String
+  languageCode    String?
+  source          String
+  aliasType       String   @default("query")
+  matchConfidence Float    @default(1.0)
+  isPrimary       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  menu            Menu     @relation(fields: [menuId], references: [id])
+
+  @@unique([menuId, aliasName])
+  @@index([aliasName])
+}
+
+model TrendSnapshot {
+  id                 String   @id @default(cuid())
+  menuId             String
+  sourceType         String
+  queryText          String
+  bucketDate         DateTime
+  timeWindowDays     Int      @default(7)
+  mentionCount       Int?
+  postCount          Int?
+  commentCount       Int?
+  upvoteCount        Int?
+  videoCount         Int?
+  viewCount          Int?
+  uniqueAuthorCount  Int?
+  regionSignalCount  Int?
+  visitIntentCount   Int?
+  rawJson            String?
+  collectedAt        DateTime @default(now())
+
+  menu               Menu     @relation(fields: [menuId], references: [id])
+
+  @@unique([menuId, sourceType, queryText, bucketDate])
+  @@index([menuId, sourceType, bucketDate])
+}
+
+model TrendScore {
+  id                String               @id @default(cuid())
+  menuId            String
+  bucketDate        DateTime
+  growthScore       Float?
+  spreadScore       Float?
+  debateScore       Float?
+  conversionScore   Float?
+  totalTrendScore   Float?
+  grade             String               @default("C")
+  gradeLabel        String               @default("유지")
+  evidenceJson      String?
+  formulaVersion    String               @default("v1")
+  calculatedAt      DateTime             @default(now())
+
+  menu              Menu                 @relation(fields: [menuId], references: [id])
+  interpretations   TrendInterpretation[]
+  consultingRuns    ConsultingRun[]
+
+  @@unique([menuId, bucketDate, formulaVersion])
+  @@index([bucketDate, totalTrendScore])
+}
+
+model TrendInterpretation {
+  id                 String     @id @default(cuid())
+  menuId             String
+  trendScoreId       String?
+  bucketDate         DateTime
+  interpretationType String     @default("daily_summary")
+  title              String
+  summaryText        String
+  actionText         String?
+  evidenceJson       String?
+  generatedBy        String     @default("rules+llm")
+  createdAt          DateTime   @default(now())
+  expiresAt          DateTime?
+
+  menu               Menu       @relation(fields: [menuId], references: [id])
+  trendScore         TrendScore? @relation(fields: [trendScoreId], references: [id])
+
+  @@index([menuId, bucketDate])
+  @@index([trendScoreId])
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String?
+  name            String?
+  userType        String   @default("consumer")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  subscription    Subscription?
+  reportPurchases ReportPurchase[]
+  b2bRequests     B2bRequest[]
+  merchants       Merchant[]
+  consultingRuns  ConsultingRun[]
+}
+
+model Subscription {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  plan       String
+  status     String   @default("active")
+  startsAt   DateTime @default(now())
+  endsAt     DateTime
+  paymentKey String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model ReportPurchase {
+  id          String   @id @default(cuid())
+  userId      String
+  brandId     String
+  amount      Int      @default(9900)
+  status      String   @default("pending")
+  paymentKey  String?
+  accessCount Int      @default(0)
+  purchasedAt DateTime @default(now())
+  expiresAt   DateTime
+  user        User     @relation(fields: [userId], references: [id])
+  brand       Brand    @relation(fields: [brandId], references: [id])
+  @@unique([userId, brandId])
+}
+
+model B2bRequest {
+  id            String   @id @default(cuid())
+  userId        String?
+  companyName   String
+  brandName     String
+  contactEmail  String
+  contactPhone  String?
+  requestType   String   @default("reputation_report")
+  amount        Int      @default(990000)
+  status        String   @default("pending")
+  paymentKey    String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  deliveredAt   DateTime?
+  user          User?    @relation(fields: [userId], references: [id])
+}
+
+model Merchant {
+  id                String             @id @default(cuid())
+  userId            String?
+  brandId           String?
+  name              String
+  slug              String             @unique
+  industryMain      String
+  region            String
+  address           String?
+  priceBand         String?
+  status            String             @default("active")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  user              User?              @relation(fields: [userId], references: [id])
+  brand             Brand?             @relation(fields: [brandId], references: [id])
+  assets            MerchantAsset[]
+  trendFits         MerchantTrendFit[]
+  consultingRuns    ConsultingRun[]
+
+  @@index([userId])
+  @@index([brandId])
+  @@index([region, industryMain])
+}
+
+model MerchantAsset {
+  id            String    @id @default(cuid())
+  merchantId    String
+  assetType     String
+  sourceUrl     String?
+  filePath      String?
+  caption       String?
+  metadataJson  String?
+  status        String    @default("active")
+  createdAt     DateTime  @default(now())
+
+  merchant      Merchant  @relation(fields: [merchantId], references: [id])
+
+  @@index([merchantId, assetType])
+}
+
+model MerchantTrendFit {
+  id                  String    @id @default(cuid())
+  merchantId          String
+  menuId              String
+  bucketDate          DateTime
+  opportunityScore    Float?
+  localFitScore       Float?
+  readinessScore      Float?
+  capacityScore       Float?
+  totalFitScore       Float?
+  fitSummary          String?
+  evidenceJson        String?
+  calculatedAt        DateTime  @default(now())
+
+  merchant            Merchant  @relation(fields: [merchantId], references: [id])
+  menu                Menu      @relation(fields: [menuId], references: [id])
+
+  @@unique([merchantId, menuId, bucketDate])
+  @@index([bucketDate, totalFitScore])
+}
+
+model ConsultingRun {
+  id                String            @id @default(cuid())
+  merchantId        String
+  menuId            String?
+  trendScoreId      String?
+  userId            String?
+  runType           String            @default("axspace_consulting")
+  status            String            @default("pending")
+  inputJson         String?
+  outputJson        String?
+  createdAt         DateTime          @default(now())
+  completedAt       DateTime?
+
+  merchant          Merchant          @relation(fields: [merchantId], references: [id])
+  menu              Menu?             @relation(fields: [menuId], references: [id])
+  trendScore        TrendScore?       @relation(fields: [trendScoreId], references: [id])
+  user              User?             @relation(fields: [userId], references: [id])
+  actions           ConsultingAction[]
+
+  @@index([merchantId, status])
+  @@index([menuId])
+  @@index([trendScoreId])
+  @@index([userId])
+}
+
+model ConsultingAction {
+  id                String        @id @default(cuid())
+  consultingRunId   String
+  actionType        String
+  channel           String?
+  title             String
+  body              String
+  priority          Int           @default(1)
+  status            String        @default("proposed")
+  metadataJson      String?
+  createdAt         DateTime      @default(now())
+
+  consultingRun     ConsultingRun @relation(fields: [consultingRunId], references: [id])
+
+  @@index([consultingRunId, actionType])
+}
